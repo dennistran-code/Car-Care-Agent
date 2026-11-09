@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Car Care Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a service desk. Left = the car's record. Right = the conversation, with each answer's work order underneath. */
+:root {
+  --bg: #f3f4f1; --panel: #ffffff; --ink: #1d2327; --muted: #5d676d; --line: #d9ddd8;
+  --accent: #1f5f7a; --accent-ink: #ffffff; --accent-soft: #e3eef2;
+  --bad: #b3261e; --bad-bg: #fbe9e7; --warn: #8a5a00; --warn-bg: #fdf1d8;
+  --ok: #2e6b3a; --ok-bg: #e5f2e7; --unk: #555f66; --unk-bg: #eceeed; --code-bg: #f6f7f5;
+  --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", Consolas, "Courier New", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15191b; --panel: #1d2225; --ink: #e4e8e6; --muted: #9aa5aa; --line: #30383c;
+    --accent: #6fb3cf; --accent-ink: #0d1a20; --accent-soft: #1f3540;
+    --bad: #ff8a80; --bad-bg: #3a1e1c; --warn: #f0c060; --warn-bg: #36301c;
+    --ok: #86c98f; --ok-bg: #1d3121; --unk: #b4bec3; --unk-bg: #2a3034; --code-bg: #171b1d;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 var(--sans); }
+header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 14px max(16px, 3vw); border-bottom: 1px solid var(--line); background: var(--panel); }
+header h1 { margin: 0; font-size: 19px; font-weight: 600; }
+.sub { color: var(--muted); font-size: 13px; }
+main { display: grid; grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); gap: 18px; padding: 16px max(16px, 3vw) 24px; max-width: 1400px; margin: 0 auto; }
+@media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; min-width: 0; }
+h2 { margin: 0 0 10px; font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+label { display: block; font-size: 12.5px; font-weight: 500; margin-bottom: 3px; }
+input, textarea, select { width: 100%; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; min-width: 0; }
+input:focus, textarea:focus, select:focus, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 74px; gap: 8px; margin-bottom: 10px; }
+.svc { display: grid; grid-template-columns: 1.15fr 0.8fr 1.5fr 26px; gap: 5px; margin-bottom: 5px; }
+.svc input, .svc select { padding: 5px 5px; font-size: 13px; }
+.svc-head { display: grid; grid-template-columns: 1.15fr 0.8fr 1.5fr 26px; gap: 5px; font-size: 11.5px; color: var(--muted); margin: 8px 0 3px; }
+button { font: inherit; cursor: pointer; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 6px 11px; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+button.x { padding: 0; color: var(--muted); }
+.link { background: none; border: none; color: var(--accent); padding: 0; font-size: 13.5px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pill { display: inline-block; border-radius: 999px; padding: 1px 9px; font-size: 11.5px; font-weight: 600; background: var(--unk-bg); color: var(--unk); white-space: nowrap; }
+.pill.ok { background: var(--ok-bg); color: var(--ok); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.pill.bad { background: var(--bad-bg); color: var(--bad); }
+.pill.agent { background: var(--accent-soft); color: var(--accent); }
+.note { font-size: 12.5px; color: var(--muted); margin: 10px 0 0; }
+
+.chat { display: flex; flex-direction: column; min-height: 70vh; }
+.log { flex: 1; display: flex; flex-direction: column; gap: 14px; padding-bottom: 10px; }
+.msg { max-width: 100%; min-width: 0; }
+.msg.user { align-self: flex-end; background: var(--accent); color: var(--accent-ink); border-radius: 12px 12px 2px 12px; padding: 8px 12px; max-width: min(85%, 640px); white-space: pre-wrap; }
+.msg.bot { align-self: stretch; }
+.bubble { background: var(--bg); border: 1px solid var(--line); border-radius: 2px 12px 12px 12px; padding: 10px 14px; }
+.bubble p { margin: 0 0 8px; } .bubble p:last-child { margin-bottom: 0; }
+.bubble ul { margin: 0 0 8px; padding-left: 20px; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; font-size: 12.5px; color: var(--muted); }
+.err { background: var(--bad-bg); color: var(--bad); border-radius: 6px; padding: 9px 12px; }
+details.work { margin-top: 6px; }
+details.work > summary { cursor: pointer; font-size: 13px; color: var(--accent); }
+.step { border-left: 3px solid var(--line); padding: 2px 0 2px 12px; margin: 10px 0; min-width: 0; }
+.step h4 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+.k { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin: 6px 0 2px; font-weight: 600; }
+.tool { font-family: var(--mono); font-size: 12.5px; background: var(--code-bg); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; overflow-x: auto; font: 12px/1.45 var(--mono); max-height: 260px; margin: 4px 0; }
+
+.gate { border: 2px solid var(--warn); background: var(--warn-bg); border-radius: 8px; padding: 12px 14px; margin-top: 8px; color: var(--ink); }
+.gate h3 { margin: 0 0 6px; font-size: 14.5px; color: var(--warn); }
+.gate table { border-collapse: collapse; font: 13px var(--mono); margin: 6px 0 10px; }
+.gate td { padding: 2px 14px 2px 0; vertical-align: top; }
+.gate td:first-child { color: var(--muted); }
+.gate .done { font-weight: 600; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 10px; }
+.chips button { font-size: 13px; border-radius: 999px; padding: 4px 11px; background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.composer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; border-top: 1px solid var(--line); padding-top: 12px; }
+.composer textarea { min-height: 46px; max-height: 160px; resize: vertical; }
+.thinking { color: var(--muted); font-style: italic; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Car Care Agent</h1><div class="sub">Maintenance · symptom diagnosis · recalls · trip prep, checked by a Critic agent</div></div>
+  <div class="row"><span class="sub" id="limits"></span><button type="button" id="newchat">New chat</button></div>
+</header>
+<main>
+  <section class="panel" aria-labelledby="h-car">
+    <h2 id="h-car">Your car <span class="pill warn" id="example" hidden>Example car: edit it</span></h2>
+    <form id="carform">
+      <div class="grid3">
+        <div><label for="make">Make</label><input id="make" required maxlength="40"></div>
+        <div><label for="model">Model</label><input id="model" required maxlength="40"></div>
+        <div><label for="year">Year</label><input id="year" type="number" min="1950" max="2030" required></div>
+      </div>
+      <label for="miles">Current mileage</label><input id="miles" type="number" min="0" max="1000000" required>
+      <div class="svc-head"><span>Service</span><span>At miles</span><span>Date</span><span></span></div>
+      <div id="svcs"></div>
+      <div class="row" style="justify-content:space-between;margin-top:6px">
+        <button type="button" class="link" id="addsvc">+ Add a service</button>
+        <button type="submit" class="primary" id="savecar">Save car</button>
+      </div>
+      <p class="note" id="carmsg"></p>
+    </form>
+    <p class="note">This is a class demo. Use made-up or non-personal car details. Your car and chat are kept in the server's memory for up to 3 hours, then deleted. Nothing is written to disk.</p>
+  </section>
+
+  <section class="panel chat" aria-labelledby="h-chat">
+    <h2 id="h-chat">Chat</h2>
+    <div class="log" id="log" aria-live="polite"></div>
+    <div class="chips" id="chips">
+      <button type="button">What maintenance is due?</button>
+      <button type="button">Are there any recalls on my car?</button>
+      <button type="button">I hear a grinding noise when I brake</button>
+      <button type="button">I'm driving 900 miles round trip next week. Is my car ready?</button>
+      <button type="button">I changed my oil today. Save that to my record.</button>
+    </div>
+    <form class="composer" id="composer">
+      <textarea id="msg" maxlength="1000" placeholder="Ask about maintenance, a noise, a recall, or a trip…" aria-label="Message"></textarea>
+      <button type="submit" class="primary" id="send">Send</button>
+    </form>
+  </section>
+</main>
+
+<script>
+const SERVICES = ["oil change","tire rotation","brake inspection","engine air filter","cabin air filter","brake fluid","coolant","transmission fluid","spark plugs","battery check"];
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let SID = "", busy = false;
+
+function store(k, v) { try { v === undefined ? (v = localStorage.getItem(k)) : localStorage.setItem(k, v); return v; } catch { return null; } }
+SID = store("carcare_sid") || (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : String(Date.now()) + Math.random().toString(36).slice(2));
+store("carcare_sid", SID);
+
+async function api(path, body) {
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 180000);
+  let r;
+  try {
+    r = await fetch(path, body ? { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ session: SID, ...body }), signal: ctl.signal } : { signal: ctl.signal });
+  } catch (e) {
+    return { ok: false, error: e.name === "AbortError" ? "No answer after 3 minutes. Check the server window for errors, then try again." : "Can't reach the server. Refresh the page and try again." };
+  } finally { clearTimeout(timer); }
+  let d; try { d = await r.json(); } catch { d = { ok: false, error: "The server sent an unreadable reply." }; }
+  if (d.session && d.session !== SID) { SID = d.session; store("carcare_sid", SID); }
+  return d;
+}
+
+// ---------- car profile
+function svcRow(s = {service: "oil change", mileage: "", date: ""}) {
+  const div = document.createElement("div"); div.className = "svc";
+  const n = Math.random().toString(36).slice(2, 7);
+  div.innerHTML = `<select id="s${n}" aria-label="Service">${SERVICES.map(x => `<option${x===s.service?" selected":""}>${x}</option>`).join("")}</select>
+    <input id="m${n}" type="number" min="0" aria-label="Mileage" value="${esc(s.mileage)}">
+    <input id="d${n}" type="date" aria-label="Date" value="${esc(s.date)}">
+    <button type="button" class="x" aria-label="Remove service">×</button>`;
+  div.querySelector("button").onclick = () => div.remove();
+  $("svcs").append(div);
+}
+function showProfile(p) {
+  $("make").value = p.make || ""; $("model").value = p.model || ""; $("year").value = p.year || ""; $("miles").value = p.mileage ?? "";
+  $("svcs").innerHTML = ""; (p.services || []).forEach(svcRow);
+  $("example").hidden = !p.is_example;
+}
+$("addsvc").onclick = () => svcRow();
+$("carform").onsubmit = async (e) => {
+  e.preventDefault();
+  const services = [...$("svcs").children].map(r => { const [s, m, d] = r.querySelectorAll("select,input"); return { service: s.value, mileage: m.value, date: d.value }; }).filter(x => x.mileage && x.date);
+  const d = await api("/api/profile", { profile: { make: $("make").value, model: $("model").value, year: $("year").value, mileage: $("miles").value, services } });
+  $("carmsg").textContent = d.ok ? "Saved. The agents will use this car." : (d.error || "Couldn't save.");
+  if (d.ok) showProfile(d.profile);
+};
+
+// ---------- chat rendering
+function md(text) {
+  const out = []; let list = null;
+  const fmt = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/^#+\s*/, "");
+  for (const raw of String(text).split(/\n/)) {
+    const line = raw.trim(), b = line.match(/^[-*•]\s+(.*)/) || line.match(/^\d+[.)]\s+(.*)/);
+    if (b) { (list ||= []).push(`<li>${fmt(b[1])}</li>`); continue; }
+    if (list) { out.push(`<ul>${list.join("")}</ul>`); list = null; }
+    if (line) out.push(/^#+\s/.test(line) ? `<p><b>${fmt(line)}</b></p>` : `<p>${fmt(line)}</p>`);
+  }
+  if (list) out.push(`<ul>${list.join("")}</ul>`);
+  return out.join("");
+}
+function addMsg(cls, html) {
+  const div = document.createElement("div"); div.className = "msg " + cls; div.innerHTML = html;
+  $("log").append(div); div.scrollIntoView({ block: "end", behavior: "smooth" }); return div;
+}
+function stepsHtml(r) {
+  const steps = (r.steps || []).map(s => {
+    let h = `<div class="step"><h4>${esc(s.agent)} · step ${s.iteration} <span class="sub">(${esc(s.model)})</span></h4>`;
+    s.reasoning.forEach(t => h += `<div class="k">Reasoning</div><div>${md(t)}</div>`);
+    s.tool_calls.forEach(c => {
+      h += `<div class="k">Tool call</div><span class="tool">${esc(c.name)}</span>
+        <pre>${esc(JSON.stringify(c.arguments, null, 2))}</pre>
+        <div class="k">Observation</div><pre>${esc(JSON.stringify(c.observation, null, 2))}</pre>`;
+    });
+    if (!s.tool_calls.length) h += `<div class="k">No tool calls</div><div class="sub">Wrote its draft answer.</div>`;
+    return h + "</div>";
+  }).join("");
+  const c = r.critic || {};
+  const critic = `<div class="step"><h4>Critic agent <span class="sub">(${esc(c.model || "checks only")})</span></h4>
+    <div>${c.approved ? "Approved the draft." : "Rejected the draft" + (c.revised ? "; the specialist rewrote it once." : ".")}</div>
+    ${(c.issues || []).length ? `<div class="k">Issues found</div><ul>${c.issues.map(i => `<li>${esc(i)}</li>`).join("")}</ul>` : ""}
+    ${(c.remaining_issues || []).length ? `<div class="k">Still flagged after rewrite</div><ul>${c.remaining_issues.map(i => `<li>${esc(i)}</li>`).join("")}</ul>` : ""}</div>`;
+  return `<details class="work"><summary>How it got this answer: router → ${esc(r.agent)} → Critic · ${r.tool_calls_used || 0} tool call(s)</summary>
+    <div class="step"><h4>Router</h4><div>Sent to <b>${esc(r.agent)}</b> because: ${esc(r.route_reason)}</div></div>${steps}${critic}</details>`;
+}
+function gateHtml(p) {
+  const rows = Object.entries(p.arguments).map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join("");
+  return `<div class="gate" id="gate-${esc(p.id)}"><h3>Approval needed: change your saved car record</h3>
+    <div>The agent wants to call <span class="tool">${esc(p.tool)}</span> with exactly these arguments. Nothing is saved unless you approve.</div>
+    <table>${rows}</table>
+    <div class="row"><button type="button" class="primary" data-id="${esc(p.id)}" data-d="approve">Approve and save</button>
+    <button type="button" data-id="${esc(p.id)}" data-d="reject">Reject</button></div></div>`;
+}
+$("log").addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-d]"); if (!b) return;
+  const card = $("gate-" + b.dataset.id); card.querySelectorAll("button").forEach(x => x.disabled = true);
+  const d = await api("/api/approve", { id: b.dataset.id, decision: b.dataset.d });
+  const msg = d.ok ? (d.approved ? "Approved. Saved to your car record." : "Rejected. Nothing was saved.") : (d.error || "Couldn't record your decision.");
+  card.querySelector(".row").outerHTML = `<div class="done">${esc(msg)}</div>`;
+  if (d.ok) showProfile(d.profile);
+});
+function botReply(r) {
+  const c = r.critic || {};
+  const badge = c.approved ? `<span class="pill ok">Critic approved</span>` : c.revised ? `<span class="pill warn">Critic: revised</span>` : `<span class="pill warn">Critic flagged</span>`;
+  const stop = r.status === "max_steps" ? `<span class="pill bad">Stopped at step limit</span>` : "";
+  addMsg("bot", `<div class="meta"><span class="pill agent">${esc(r.agent)}</span>${badge}${stop}</div>
+    <div class="bubble">${md(r.reply)}</div>${(r.pending || []).map(gateHtml).join("")}${stepsHtml(r)}`);
+}
+function setLimits(n) { if (n != null) $("limits").textContent = `${n} messages left in this chat`; }
+
+async function send(text) {
+  text = text.trim(); if (!text || busy) return;
+  busy = true; $("send").disabled = true; $("msg").value = "";
+  addMsg("user", esc(text));
+  const wait = addMsg("bot", `<div class="bubble thinking">Routing to the right agent, calling tools, then the Critic checks the answer… (usually 15–60 seconds)</div>`);
+  try {
+    const r = await api("/api/chat", { message: text });
+    wait.remove();
+    if (r.ok) botReply(r); else addMsg("bot", `<div class="err">${esc(r.error || "Something went wrong.")}</div>`);
+    if (r.profile) showProfile(r.profile);
+    setLimits(r.turns_left);
+  } catch {
+    wait.remove(); addMsg("bot", `<div class="err">Can't reach the server. Refresh the page and try again.</div>`);
+  } finally { busy = false; $("send").disabled = false; $("msg").focus(); }
+}
+$("composer").onsubmit = (e) => { e.preventDefault(); send($("msg").value); };
+$("msg").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send($("msg").value); } });
+$("chips").addEventListener("click", (e) => { if (e.target.tagName === "BUTTON") send(e.target.textContent); });
+$("newchat").onclick = async () => { const d = await api("/api/reset", {}); $("log").innerHTML = ""; welcome(); setLimits(d.turns_left); };
+
+function welcome() {
+  addMsg("bot", `<div class="meta"><span class="pill agent">Car Care Agent</span></div><div class="bubble"><p>Hi! I can tell you what maintenance is due, figure out what a noise or warning light might mean, check NHTSA recalls, and get your car ready for a trip.</p><p>An example car is loaded on the left. Edit it, or just try a question below. If I ever want to change your saved car record, I'll ask you first.</p></div>`);
+}
+(async () => {
+  welcome();
+  try { const d = await api("/api/session?sid=" + encodeURIComponent(SID)); if (d.session) { SID = d.session; store("carcare_sid", SID); }
+    showProfile(d.profile); setLimits(d.turns_left); (d.pending || []).forEach(p => addMsg("bot", gateHtml(p))); }
+  catch { addMsg("bot", `<div class="err">Can't reach the server. If it's on Render's free plan it may be waking up; wait a minute and refresh.</div>`); }
+})();
+</script>
+</body>
+</html>
