@@ -5,11 +5,15 @@ Render:  start command `python server.py`; set GEMINI_API_KEY as an environment 
 """
 import json
 import os
+import re
 import threading
 import time
 import webbrowser
 from collections import defaultdict, deque
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, quote, urlparse
+
+import requests
 
 import agents
 import llm
@@ -48,6 +52,47 @@ def visitor_allowed(ip, now=None, limit=None):
             return False
         q.append(now)
         return True
+
+
+VPIC = "https://vpic.nhtsa.dot.gov/api/vehicles/GetModelsForMakeYear/make/{make}/modelyear/{year}{vtype}"
+_models_cache, _models_lock = {}, threading.Lock()
+
+
+def lookup_models(make, year, get=None):
+    """Model names for a make and year from NHTSA's vehicle database (cars, SUVs, trucks).
+
+    Feeds the Model search box. Returns [] on any problem, so the visitor can still type a model.
+    """
+    get = get or requests.get
+    make = str(make or "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9 .&'-]{1,40}", make):
+        return []
+    try:
+        year = int(year)
+    except (TypeError, ValueError):
+        return []
+    if not 1995 <= year <= time.gmtime().tm_year + 1:
+        return []
+    key = (make.lower(), year)
+    with _models_lock:
+        if key in _models_cache:
+            return _models_cache[key]
+    names = set()
+    for vtype in ("/vehicletype/car", "/vehicletype/multipurpose", "/vehicletype/truck"):
+        try:
+            r = get(VPIC.format(make=quote(make), year=year, vtype=vtype), params={"format": "json"}, timeout=8)
+            r.raise_for_status()
+            for row in r.json().get("Results") or []:
+                name = str(row.get("Model_Name") or "").strip()
+                if name:
+                    names.add(name)
+        except Exception:
+            continue
+    out = sorted(names, key=str.lower)[:300]
+    if out:
+        with _models_lock:
+            _models_cache[key] = out
+    return out
 
 
 def session_view(s):
@@ -92,6 +137,9 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/session":
             sid = self.path.split("sid=")[-1] if "sid=" in self.path else ""
             return self._json(200, session_view(SESSIONS.get(sid)))
+        if path == "/api/models":
+            q = parse_qs(urlparse(self.path).query)
+            return self._json(200, {"models": lookup_models(q.get("make", [""])[0], q.get("year", [""])[0])})
         return super().do_GET()
 
     def do_POST(self):
