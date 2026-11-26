@@ -5,129 +5,238 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Car Care Agent</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <style>
-/* Layout: a service desk. Left = the car's record. Right = the conversation, with each answer's work order underneath. */
+/* Layout: a service logbook beside a service desk. Left: the car's record, led by an odometer.
+   Right: the conversation, each answer followed by the work order that produced it. */
 :root {
-  --bg: #f3f4f1; --panel: #ffffff; --ink: #1d2327; --muted: #5d676d; --line: #d9ddd8;
-  --accent: #1f5f7a; --accent-ink: #ffffff; --accent-soft: #e3eef2;
-  --bad: #b3261e; --bad-bg: #fbe9e7; --warn: #8a5a00; --warn-bg: #fdf1d8;
-  --ok: #2e6b3a; --ok-bg: #e5f2e7; --unk: #555f66; --unk-bg: #eceeed; --code-bg: #f6f7f5;
+  --paper: #f4f6f5; --panel: #ffffff; --ink: #17212b; --muted: #5d6a74; --faint: #8a959d; --line: #dde2e4;
+  --accent: #155e75; --accent-ink: #ffffff; --accent-soft: #e4eff2; --accent-line: #b9d5dc;
+  --gate: #a15c07; --gate-bg: #fdf4e5; --gate-line: #ecc98f;
+  --ok: #2f6b3b; --ok-bg: #e6f2e8; --warn: #8a5a00; --warn-bg: #fbf0d9; --bad: #a8321f; --bad-bg: #fbe8e4;
+  --odo-bg: #1b2530; --odo-ink: #f1f4f2; --odo-cell: #26323e;
+  --code-bg: #f3f5f4;
+  --a-maint: #155e75; --a-diag: #8a4f7d; --a-trip: #2f7d5b; --a-crit: #4a5a66; --lane: #e8b23a;
   --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
-  --mono: "IBM Plex Mono", Consolas, "Courier New", monospace;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --r-lg: 14px; --r-md: 10px; --r-sm: 6px;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #15191b; --panel: #1d2225; --ink: #e4e8e6; --muted: #9aa5aa; --line: #30383c;
-    --accent: #6fb3cf; --accent-ink: #0d1a20; --accent-soft: #1f3540;
-    --bad: #ff8a80; --bad-bg: #3a1e1c; --warn: #f0c060; --warn-bg: #36301c;
-    --ok: #86c98f; --ok-bg: #1d3121; --unk: #b4bec3; --unk-bg: #2a3034; --code-bg: #171b1d;
+    --paper: #12171b; --panel: #192026; --ink: #e5eae8; --muted: #9eaab2; --faint: #75818a; --line: #2b353c;
+    --accent: #6cb8cc; --accent-ink: #0b1b21; --accent-soft: #1c3139; --accent-line: #2d4f5a;
+    --gate: #f0b45a; --gate-bg: #2e2516; --gate-line: #5c4520;
+    --ok: #88c994; --ok-bg: #1b2e20; --warn: #f0c060; --warn-bg: #33291a; --bad: #ff9a88; --bad-bg: #3a201b;
+    --odo-bg: #0c1013; --odo-ink: #f1f4f2; --odo-cell: #1a2228; --code-bg: #141a1e;
+    --a-maint: #6cb8cc; --a-diag: #d69ac9; --a-trip: #7fcca5; --a-crit: #a9b8c3; --lane: #e0a93a;
     color-scheme: dark;
   }
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 var(--sans); }
-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 14px max(16px, 3vw); border-bottom: 1px solid var(--line); background: var(--panel); }
-header h1 { margin: 0; font-size: 19px; font-weight: 600; }
-.sub { color: var(--muted); font-size: 13px; }
-main { display: grid; grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); gap: 18px; padding: 16px max(16px, 3vw) 24px; max-width: 1400px; margin: 0 auto; }
-@media (max-width: 900px) { main { grid-template-columns: 1fr; } }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; min-width: 0; }
-h2 { margin: 0 0 10px; font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); display: flex; align-items: center; gap: 8px; }
-label { display: block; font-size: 12.5px; font-weight: 500; margin-bottom: 3px; }
-input, textarea, select { width: 100%; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; min-width: 0; }
-input:focus, textarea:focus, select:focus, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.grid3 { display: grid; grid-template-columns: 1fr 1fr 74px; gap: 8px; margin-bottom: 10px; }
-.svc { display: grid; grid-template-columns: 1.15fr 0.8fr 1.5fr 26px; gap: 5px; margin-bottom: 5px; }
-.svc input, .svc select { padding: 5px 5px; font-size: 13px; }
-.svc-head { display: grid; grid-template-columns: 1.15fr 0.8fr 1.5fr 26px; gap: 5px; font-size: 11.5px; color: var(--muted); margin: 8px 0 3px; }
-button { font: inherit; cursor: pointer; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 6px 11px; }
-button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
-button:disabled { opacity: 0.55; cursor: not-allowed; }
-button.x { padding: 0; color: var(--muted); }
-.link { background: none; border: none; color: var(--accent); padding: 0; font-size: 13.5px; }
-.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.pill { display: inline-block; border-radius: 999px; padding: 1px 9px; font-size: 11.5px; font-weight: 600; background: var(--unk-bg); color: var(--unk); white-space: nowrap; }
-.pill.ok { background: var(--ok-bg); color: var(--ok); }
-.pill.warn { background: var(--warn-bg); color: var(--warn); }
-.pill.bad { background: var(--bad-bg); color: var(--bad); }
-.pill.agent { background: var(--accent-soft); color: var(--accent); }
-.note { font-size: 12.5px; color: var(--muted); margin: 10px 0 0; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.chat { display: flex; flex-direction: column; min-height: 70vh; }
-.log { flex: 1; display: flex; flex-direction: column; gap: 14px; padding-bottom: 10px; }
-.msg { max-width: 100%; min-width: 0; }
-.msg.user { align-self: flex-end; background: var(--accent); color: var(--accent-ink); border-radius: 12px 12px 2px 12px; padding: 8px 12px; max-width: min(85%, 640px); white-space: pre-wrap; }
-.msg.bot { align-self: stretch; }
-.bubble { background: var(--bg); border: 1px solid var(--line); border-radius: 2px 12px 12px 12px; padding: 10px 14px; }
-.bubble p { margin: 0 0 8px; } .bubble p:last-child { margin-bottom: 0; }
-.bubble ul { margin: 0 0 8px; padding-left: 20px; }
-.meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; font-size: 12.5px; color: var(--muted); }
-.err { background: var(--bad-bg); color: var(--bad); border-radius: 6px; padding: 9px 12px; }
-details.work { margin-top: 6px; }
-details.work > summary { cursor: pointer; font-size: 13px; color: var(--accent); }
-.step { border-left: 3px solid var(--line); padding: 2px 0 2px 12px; margin: 10px 0; min-width: 0; }
-.step h4 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
-.k { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin: 6px 0 2px; font-weight: 600; }
-.tool { font-family: var(--mono); font-size: 12.5px; background: var(--code-bg); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
-pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; overflow-x: auto; font: 12px/1.45 var(--mono); max-height: 260px; margin: 4px 0; }
+/* top bar */
+.bar { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px max(16px, 3vw) 15px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.bar::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; background: repeating-linear-gradient(90deg, var(--lane) 0 26px, transparent 26px 44px); opacity: .85; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand svg { width: 30px; height: 30px; flex: none; }
+.brand h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.005em; }
+.brand p { margin: 0; font-size: 12.5px; color: var(--muted); }
+.bar-right { display: flex; align-items: center; gap: 12px; }
+.left-count { font-size: 12.5px; color: var(--muted); }
 
-.gate { border: 2px solid var(--warn); background: var(--warn-bg); border-radius: 8px; padding: 12px 14px; margin-top: 8px; color: var(--ink); }
-.gate h3 { margin: 0 0 6px; font-size: 14.5px; color: var(--warn); }
-.gate table { border-collapse: collapse; font: 13px var(--mono); margin: 6px 0 10px; }
-.gate td { padding: 2px 14px 2px 0; vertical-align: top; }
+main { display: grid; grid-template-columns: minmax(290px, 360px) minmax(0, 1fr); gap: 20px; padding: 20px max(16px, 3vw) 28px; max-width: 1360px; margin: 0 auto; align-items: start; }
+@media (max-width: 900px) { main { grid-template-columns: 1fr; gap: 14px; padding-top: 14px; } .desk { order: -1; } }
+@media (max-width: 560px) { .brand p { display: none; } .left-count { display: none; } }
+
+/* vehicle record */
+.record { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+.vehicle { background: var(--odo-bg); color: var(--odo-ink); padding: 18px 18px 16px; }
+.vehicle-top { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
+.vehicle h2 { margin: 0; font-size: 19px; font-weight: 600; line-height: 1.25; }
+.vehicle .sample { font-size: 11.5px; font-weight: 500; color: #f5c77a; border: 1px solid #6b5426; border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+.odometer { display: flex; align-items: end; gap: 4px; margin-top: 14px; }
+.odometer .cell { font: 600 26px/1 var(--mono); background: var(--odo-cell); border-radius: 4px; width: 30px; height: 40px; overflow: hidden; position: relative; font-variant-numeric: tabular-nums; box-shadow: inset 0 -10px 12px rgba(0,0,0,0.25), inset 0 10px 12px rgba(0,0,0,0.25); }
+.odometer .strip { display: flex; flex-direction: column; transition: transform .9s cubic-bezier(.2,.8,.2,1); }
+.odometer .strip span { height: 40px; line-height: 40px; text-align: center; }
+.odometer .cell:last-of-type { color: #f5c77a; }
+.odometer .unit { font: 500 13px var(--mono); color: #aab6bd; margin: 0 0 4px 6px; }
+.odo-label { font-size: 12px; color: #aab6bd; margin-top: 6px; }
+
+.record form { padding: 16px 18px 18px; }
+.record h3 { font-size: 14px; font-weight: 600; margin: 0 0 10px; }
+.record h3 + .hint { margin-top: -6px; }
+.fields { display: grid; grid-template-columns: 1fr 1fr 78px; gap: 8px; margin-bottom: 10px; }
+label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 3px; }
+input, select, textarea { width: 100%; min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 7px 9px; }
+input:focus, select:focus, textarea:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.log-head { font-size: 14px; font-weight: 600; margin: 18px 0 4px; }
+.svc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) 26px; gap: 2px 6px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
+.svc select { grid-column: 1 / 3; grid-row: 1; font-weight: 500; }
+.svc .x { grid-column: 3; grid-row: 1; }
+.svc input[type=number] { grid-column: 1; grid-row: 2; }
+.svc input[type=date] { grid-column: 2; grid-row: 2; }
+.svc input, .svc select { padding: 5px 6px; font-size: 13.5px; border-color: transparent; background: transparent; }
+.svc input:hover, .svc select:hover { border-color: var(--line); }
+.svc input[type=number] { font-family: var(--mono); font-size: 13px; }
+.svc .x { border: 0; background: none; color: var(--faint); cursor: pointer; font-size: 17px; line-height: 1; padding: 4px; border-radius: var(--r-sm); }
+.svc .x:hover { color: var(--bad); background: var(--bad-bg); }
+.record-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; gap: 8px; }
+.hint { font-size: 12.5px; color: var(--muted); margin: 10px 0 0; }
+.field-hint { margin: -4px 0 10px; }
+input[list] { padding-right: 26px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238a959d' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 9px center; }
+input[list]::-webkit-calendar-picker-indicator { opacity: 0; }
+.privacy { font-size: 12px; color: var(--faint); margin: 0; padding: 12px 18px 16px; border-top: 1px solid var(--line); }
+
+.btn { border: 1px solid var(--line); background: var(--panel); border-radius: var(--r-sm); padding: 7px 13px; cursor: pointer; font-weight: 500; font-size: 14px; }
+.btn:hover { border-color: var(--faint); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.text { border: 0; background: none; color: var(--accent); padding: 4px 0; }
+
+/* conversation */
+.desk { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); display: flex; flex-direction: column; min-height: calc(100vh - 140px); min-width: 0; }
+@media (max-width: 900px) { .desk { min-height: 70vh; } }
+.log { flex: 1; padding: 22px clamp(14px, 3vw, 30px) 8px; display: flex; flex-direction: column; gap: 22px; }
+.msg { min-width: 0; max-width: 760px; }
+.msg.user { align-self: flex-end; background: var(--accent-soft); border: 1px solid var(--accent-line); border-radius: 14px 14px 4px 14px; padding: 9px 14px; max-width: min(82%, 600px); white-space: pre-wrap; }
+.who { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 13px; }
+.who .name { font-weight: 600; }
+.avatar { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; color: #fff; flex: none; background: var(--agent, var(--accent)); }
+.avatar svg { width: 15px; height: 15px; }
+.msg.bot { --agent: var(--accent); }
+.msg.bot.maint { --agent: var(--a-maint); } .msg.bot.diag { --agent: var(--a-diag); } .msg.bot.trip { --agent: var(--a-trip); }
+.msg.bot .answer { border-left: 2px solid color-mix(in srgb, var(--agent) 35%, transparent); padding-left: 14px; margin-left: 12px; }
+.msg.bot .gate, .msg.bot details.work { margin-left: 28px; }
+@media (prefers-color-scheme: dark) { .avatar { color: #0d161a; } }
+.badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; border-radius: 999px; padding: 1px 9px 1px 7px; }
+.badge svg { width: 12px; height: 12px; }
+.badge.ok { background: var(--ok-bg); color: var(--ok); }
+.badge.warn { background: var(--warn-bg); color: var(--warn); }
+.badge.bad { background: var(--bad-bg); color: var(--bad); }
+.hello { display: flex; gap: 18px; align-items: center; background: linear-gradient(0deg, var(--accent-soft), var(--accent-soft)); border: 1px solid var(--accent-line); border-radius: var(--r-lg); padding: 18px 20px; }
+.hello h2 { margin: 0 0 4px; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+.hello p { margin: 0 0 6px; } .hello p.sub { font-size: 13.5px; color: var(--muted); margin: 0; }
+.hello-art { flex: none; width: 92px; height: 56px; display: grid; place-items: center; background: var(--panel); border-radius: 12px; border: 1px solid var(--accent-line); color: var(--accent); }
+.hello-art svg { width: 70px; height: 35px; animation: idle 2.4s ease-in-out infinite; }
+@keyframes idle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.5px); } }
+@media (max-width: 560px) { .hello { flex-direction: column; align-items: flex-start; } }
+.answer p { margin: 0 0 9px; } .answer p:last-child { margin-bottom: 0; }
+.answer ul { margin: 0 0 9px; padding-left: 20px; } .answer li { margin: 2px 0; }
+.answer b { font-weight: 600; }
+.thinking { display: flex; flex-direction: column; gap: 8px; color: var(--muted); font-size: 14px; margin-left: 40px; }
+.road { position: relative; width: min(320px, 100%); height: 26px; overflow: hidden; }
+.road::after { content: ""; position: absolute; left: 0; right: 0; bottom: 3px; height: 2px; background: repeating-linear-gradient(90deg, var(--faint) 0 14px, transparent 14px 26px); animation: lane .6s linear infinite; }
+.road svg { position: absolute; bottom: 4px; width: 40px; height: 20px; color: var(--accent); animation: drive 3.2s ease-in-out infinite; }
+@keyframes lane { to { background-position: -26px 0; } }
+@keyframes drive { 0% { left: -12%; } 50% { left: 44%; } 100% { left: 100%; } }
+.dots span { display: inline-block; width: 6px; height: 6px; margin-right: 3px; border-radius: 50%; background: var(--accent); animation: blink 1.2s infinite ease-in-out; }
+.dots span:nth-child(2) { animation-delay: .15s; } .dots span:nth-child(3) { animation-delay: .3s; }
+@keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+.err { background: var(--bad-bg); color: var(--bad); border-radius: var(--r-md); padding: 10px 14px; }
+
+/* approval */
+.gate { margin-top: 12px; border: 1px solid var(--gate-line); border-left: 4px solid var(--gate); background: var(--gate-bg); border-radius: var(--r-md); padding: 13px 16px; max-width: 560px; }
+.gate h4 { margin: 0 0 4px; font-size: 14.5px; font-weight: 600; }
+.gate p { margin: 0 0 10px; font-size: 13.5px; color: var(--muted); }
+.gate table { border-collapse: collapse; font: 13px var(--mono); margin: 0 0 12px; background: var(--panel); border: 1px solid var(--gate-line); border-radius: var(--r-sm); overflow: hidden; }
+.gate td { padding: 5px 12px; border-bottom: 1px solid var(--gate-line); vertical-align: top; }
+.gate tr:last-child td { border-bottom: 0; }
 .gate td:first-child { color: var(--muted); }
-.gate .done { font-weight: 600; }
+.gate .row { display: flex; gap: 8px; flex-wrap: wrap; }
+.gate { position: relative; }
+.gate .done { font-weight: 600; font-size: 14px; }
+.stamp { position: absolute; right: 18px; bottom: 12px; border: 2.5px solid var(--ok); color: var(--ok); border-radius: 6px; padding: 2px 10px; font: 700 15px var(--sans); letter-spacing: .06em; transform: rotate(-8deg); animation: stamp .35s cubic-bezier(.3,1.6,.5,1) both; background: color-mix(in srgb, var(--panel) 70%, transparent); }
+.stamp.no { border-color: var(--faint); color: var(--faint); }
+@keyframes stamp { from { transform: rotate(-8deg) scale(1.8); opacity: 0; } to { transform: rotate(-8deg) scale(1); opacity: 1; } }
+.svc.fresh { animation: fresh 2.4s ease-out; border-radius: 6px; }
+@keyframes fresh { 0%, 30% { background: var(--ok-bg); } 100% { background: transparent; } }
 
-.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 10px; }
-.chips button { font-size: 13px; border-radius: 999px; padding: 4px 11px; background: var(--accent-soft); color: var(--accent); border-color: transparent; }
-.composer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; border-top: 1px solid var(--line); padding-top: 12px; }
-.composer textarea { min-height: 46px; max-height: 160px; resize: vertical; }
-.thinking { color: var(--muted); font-style: italic; }
-@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+/* work order (trace) */
+details.work { margin-top: 10px; }
+details.work > summary { cursor: pointer; font-size: 13px; color: var(--accent); list-style: none; display: inline-flex; align-items: center; gap: 6px; }
+details.work > summary::-webkit-details-marker { display: none; }
+details.work > summary::before { content: ""; width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform .15s; }
+details.work[open] > summary::before { transform: rotate(45deg); }
+.steps { list-style: none; margin: 10px 0 0; padding: 0 0 0 4px; counter-reset: s; }
+.steps > li { position: relative; padding: 0 0 14px 28px; counter-increment: s; }
+.steps > li::before { content: counter(s); position: absolute; left: 0; top: 1px; width: 19px; height: 19px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font: 600 11px/19px var(--sans); text-align: center; }
+.steps > li::after { content: ""; position: absolute; left: 9px; top: 22px; bottom: 2px; width: 1px; background: var(--line); }
+.steps > li:last-child::after { display: none; }
+.steps h5 { margin: 0 0 3px; font-size: 13.5px; font-weight: 600; }
+.steps h5 small { font-weight: 400; color: var(--faint); font-size: 12px; }
+.steps .note { font-size: 13.5px; color: var(--muted); }
+.call { margin-top: 6px; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; }
+.call summary { cursor: pointer; padding: 5px 10px; font: 12.5px var(--mono); background: var(--code-bg); display: flex; justify-content: space-between; gap: 8px; }
+.call .st { font-family: var(--sans); font-size: 12px; }
+.call .st.okc { color: var(--ok); } .call .st.fail { color: var(--bad); }
+pre { margin: 0; padding: 8px 10px; overflow-x: auto; font: 12px/1.45 var(--mono); max-height: 240px; background: var(--panel); border-top: 1px solid var(--line); }
+pre + pre { border-top-style: dashed; }
+
+/* composer */
+.compose { border-top: 1px solid var(--line); padding: 12px clamp(14px, 3vw, 30px) 16px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.chips button { border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: 4px 12px; font-size: 13px; cursor: pointer; color: var(--ink); }
+.chips button { display: inline-flex; align-items: center; gap: 6px; text-align: left; }
+.chips button svg { width: 13px; height: 13px; color: var(--agent); flex: none; }
+.chips button:hover { border-color: var(--agent); color: var(--ink); background: color-mix(in srgb, var(--agent) 10%, var(--panel)); }
+.composer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.composer textarea { min-height: 48px; max-height: 160px; resize: vertical; padding: 11px 12px; border-radius: var(--r-md); }
+.composer .btn { padding: 11px 18px; border-radius: var(--r-md); }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
-<header>
-  <div><h1>Car Care Agent</h1><div class="sub">Maintenance · symptom diagnosis · recalls · trip prep, checked by a Critic agent</div></div>
-  <div class="row"><span class="sub" id="limits"></span><button type="button" id="newchat">New chat</button></div>
+<header class="bar">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--accent)"/><path d="M16 6.5a9.5 9.5 0 1 0 9.5 9.5" fill="none" stroke="var(--accent-ink)" stroke-width="2.2" stroke-linecap="round"/><path d="M16 16l5.2-5.2" stroke="var(--accent-ink)" stroke-width="2.2" stroke-linecap="round"/><circle cx="16" cy="16" r="1.9" fill="var(--accent-ink)"/></svg>
+    <div><h1>Car Care Agent</h1><p>Maintenance, symptoms, recalls and trip prep, checked before you see it</p></div>
+  </div>
+  <div class="bar-right"><span class="left-count" id="limits"></span><button type="button" class="btn" id="newchat">New chat</button></div>
 </header>
+
 <main>
-  <section class="panel" aria-labelledby="h-car">
-    <h2 id="h-car">Your car <span class="pill warn" id="example" hidden>Example car: edit it</span></h2>
+  <aside class="record" aria-labelledby="carname">
+    <div class="vehicle">
+      <div class="vehicle-top"><h2 id="carname">Your car</h2><span class="sample" id="example" hidden>Example car</span></div>
+      <div class="odometer" id="odo" aria-label="Odometer"></div>
+      <div class="odo-label">Current mileage</div>
+    </div>
     <form id="carform">
-      <div class="grid3">
-        <div><label for="make">Make</label><input id="make" required maxlength="40"></div>
-        <div><label for="model">Model</label><input id="model" required maxlength="40"></div>
+      <h3>Vehicle</h3>
+      <div class="fields">
+        <div><label for="make">Make</label><input id="make" list="makelist" autocomplete="off" placeholder="Start typing" required maxlength="40"></div>
+        <div><label for="model">Model</label><input id="model" list="modellist" autocomplete="off" placeholder="Start typing" required maxlength="40"></div>
         <div><label for="year">Year</label><input id="year" type="number" min="1950" max="2030" required></div>
       </div>
+      <datalist id="makelist"><option value="Acura"><option value="Alfa Romeo"><option value="Audi"><option value="BMW"><option value="Buick"><option value="Cadillac"><option value="Chevrolet"><option value="Chrysler"><option value="Dodge"><option value="Fiat"><option value="Ford"><option value="Genesis"><option value="GMC"><option value="Honda"><option value="Hyundai"><option value="Infiniti"><option value="Jaguar"><option value="Jeep"><option value="Kia"><option value="Land Rover"><option value="Lexus"><option value="Lincoln"><option value="Mazda"><option value="Mercedes-Benz"><option value="Mini"><option value="Mitsubishi"><option value="Nissan"><option value="Polestar"><option value="Porsche"><option value="Ram"><option value="Rivian"><option value="Scion"><option value="Subaru"><option value="Tesla"><option value="Toyota"><option value="Volkswagen"><option value="Volvo"></datalist>
+      <datalist id="modellist"></datalist>
+      <p class="hint field-hint" id="modelhint">Pick from the lists or type your own.</p>
       <label for="miles">Current mileage</label><input id="miles" type="number" min="0" max="1000000" required>
-      <div class="svc-head"><span>Service</span><span>At miles</span><span>Date</span><span></span></div>
+      <div class="log-head">Service log</div>
       <div id="svcs"></div>
-      <div class="row" style="justify-content:space-between;margin-top:6px">
-        <button type="button" class="link" id="addsvc">+ Add a service</button>
-        <button type="submit" class="primary" id="savecar">Save car</button>
+      <div class="record-actions">
+        <button type="button" class="btn text" id="addsvc">Add a service</button>
+        <button type="submit" class="btn primary" id="savecar">Save car</button>
       </div>
-      <p class="note" id="carmsg"></p>
+      <p class="hint" id="carmsg" aria-live="polite"></p>
     </form>
-    <p class="note">This is a class demo. Use made-up or non-personal car details. Your car and chat are kept in the server's memory for up to 3 hours, then deleted. Nothing is written to disk.</p>
-  </section>
+    <p class="privacy">Class demo: use made-up car details. Your car and chat stay in server memory for up to 3 hours, then they're deleted.</p>
+  </aside>
 
-  <section class="panel chat" aria-labelledby="h-chat">
-    <h2 id="h-chat">Chat</h2>
+  <section class="desk" aria-label="Chat">
     <div class="log" id="log" aria-live="polite"></div>
-    <div class="chips" id="chips">
-      <button type="button">What maintenance is due?</button>
-      <button type="button">Are there any recalls on my car?</button>
-      <button type="button">I hear a grinding noise when I brake</button>
-      <button type="button">I'm driving 900 miles round trip next week. Is my car ready?</button>
-      <button type="button">I changed my oil today. Save that to my record.</button>
+    <div class="compose">
+      <div class="chips" id="chips"></div>
+      <form class="composer" id="composer">
+        <textarea id="msg" maxlength="1000" rows="1" placeholder="Ask about maintenance, a noise, a recall or a trip" aria-label="Message"></textarea>
+        <button type="submit" class="btn primary" id="send">Send</button>
+      </form>
     </div>
-    <form class="composer" id="composer">
-      <textarea id="msg" maxlength="1000" placeholder="Ask about maintenance, a noise, a recall, or a trip…" aria-label="Message"></textarea>
-      <button type="submit" class="primary" id="send">Send</button>
-    </form>
   </section>
 </main>
 
@@ -135,6 +244,18 @@ pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 
 const SERVICES = ["oil change","tire rotation","brake inspection","engine air filter","cabin air filter","brake fluid","coolant","transmission fluid","spark plugs","battery check"];
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const AGENT_ICONS = {
+  maint: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 2.2a3.4 3.4 0 0 0-3.9 4.5L2.4 10.9a1.5 1.5 0 0 0 2.1 2.1l4.2-4.2a3.4 3.4 0 0 0 4.5-3.9l-2 2-1.9-.4-.4-1.9z"/></svg>`,
+  diag: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 8.5h3l1.6-4 2.6 8 1.8-5.2 1 1.2h3"/></svg>`,
+  trip: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 14.5s4.5-4.2 4.5-7.6A4.5 4.5 0 0 0 3.5 6.9c0 3.4 4.5 7.6 4.5 7.6z"/><circle cx="8" cy="7" r="1.6"/></svg>`,
+  home: `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 0 5.5 5.5"/><path d="M8 8l3.4-3.4"/><circle cx="8" cy="8" r="1" fill="currentColor"/></svg>`,
+};
+const CHIPS = [["What maintenance is due?", "maint"], ["Are there any recalls on my car?", "home"], ["I hear a grinding noise when I brake", "diag"], ["I'm driving 900 miles round trip next week. Is my car ready?", "trip"], ["I changed my oil today. Save that to my record.", "maint"]];
+const agentClass = (key) => ({ maintenance: "maint", diagnostic: "diag", trip: "trip" }[key] || "home");
+const avatar = (cls) => `<span class="avatar">${AGENT_ICONS[cls] || AGENT_ICONS.home}</span>`;
+const CAR_SVG = `<svg viewBox="0 0 40 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M3 14.5V11l4-1.2L11.5 5h12l5.5 4.8 6.5 1.4c1.2.3 1.5 1 1.5 2v1.3"/><path d="M14 5.5l-1.6 4.3h14.2"/><circle cx="10" cy="15" r="2.6" fill="var(--panel)"/><circle cx="29.5" cy="15" r="2.6" fill="var(--panel)"/><path d="M12.6 15h14.3M3 14.5h4.4M32.1 15H37"/></svg>`;
+const ICON_OK = `<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 6.3l2.3 2.2L9.5 3.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const ICON_WARN = `<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 3v3.6M6 8.6v.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
 let SID = "", busy = false;
 
 function store(k, v) { try { v === undefined ? (v = localStorage.getItem(k)) : localStorage.setItem(k, v); return v; } catch { return null; } }
@@ -147,19 +268,50 @@ async function api(path, body) {
   try {
     r = await fetch(path, body ? { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ session: SID, ...body }), signal: ctl.signal } : { signal: ctl.signal });
   } catch (e) {
-    return { ok: false, error: e.name === "AbortError" ? "No answer after 3 minutes. Check the server window for errors, then try again." : "Can't reach the server. Refresh the page and try again." };
+    return { ok: false, error: e.name === "AbortError" ? "No answer after 3 minutes. Try again in a minute." : "Can't reach the server. Refresh the page and try again." };
   } finally { clearTimeout(timer); }
   let d; try { d = await r.json(); } catch { d = { ok: false, error: "The server sent an unreadable reply." }; }
   if (d.session && d.session !== SID) { SID = d.session; store("carcare_sid", SID); }
   return d;
 }
 
-// ---------- car profile
+// ---------- vehicle record
+function drawVehicle() {
+  const name = [$("year").value, $("make").value.trim(), $("model").value.trim()].filter(Boolean).join(" ");
+  $("carname").textContent = name || "Your car";
+  const digits = String(Math.max(0, parseInt($("miles").value || "0", 10) || 0)).padStart(6, "0").slice(-7);
+  const odo = $("odo");
+  if (odo.querySelectorAll(".cell").length !== digits.length) {
+    odo.innerHTML = [...digits].map(() => `<span class="cell"><span class="strip">${[0,1,2,3,4,5,6,7,8,9].map(n => `<span>${n}</span>`).join("")}</span></span>`).join("") + `<span class="unit">mi</span>`;
+    odo.offsetHeight; // start from 0 so the first draw rolls up
+  }
+  odo.querySelectorAll(".strip").forEach((st, i) => { st.style.transform = `translateY(-${Number(digits[i]) * 40}px)`; });
+  $("odo").setAttribute("aria-label", `Odometer: ${Number(digits).toLocaleString("en-US")} miles`);
+}
+["make", "model", "year", "miles"].forEach(id => $(id).addEventListener("input", drawVehicle));
+
+// Model search: list the models NHTSA has for this make and year
+let modelTimer = null, modelKey = "";
+async function loadModels() {
+  const make = $("make").value.trim(), year = $("year").value.trim();
+  const key = make.toLowerCase() + "|" + year;
+  if (!make || year.length !== 4 || key === modelKey) return;
+  modelKey = key;
+  $("modelhint").textContent = `Looking up ${year} ${make} models…`;
+  const d = await api(`/api/models?make=${encodeURIComponent(make)}&year=${encodeURIComponent(year)}`);
+  if (key !== modelKey) return;
+  const models = d.models || [];
+  $("modellist").innerHTML = models.map(m => `<option value="${esc(m)}">`).join("");
+  $("modelhint").textContent = models.length
+    ? `${models.length} ${year} ${make} models found. Click Model to pick one, or type to search.`
+    : `No model list for ${year} ${make}. Type the model name.`;
+}
+["make", "year"].forEach(id => $(id).addEventListener("input", () => { clearTimeout(modelTimer); modelTimer = setTimeout(loadModels, 450); }));
 function svcRow(s = {service: "oil change", mileage: "", date: ""}) {
   const div = document.createElement("div"); div.className = "svc";
   const n = Math.random().toString(36).slice(2, 7);
   div.innerHTML = `<select id="s${n}" aria-label="Service">${SERVICES.map(x => `<option${x===s.service?" selected":""}>${x}</option>`).join("")}</select>
-    <input id="m${n}" type="number" min="0" aria-label="Mileage" value="${esc(s.mileage)}">
+    <input id="m${n}" type="number" min="0" aria-label="Mileage" placeholder="Miles" value="${esc(s.mileage)}">
     <input id="d${n}" type="date" aria-label="Date" value="${esc(s.date)}">
     <button type="button" class="x" aria-label="Remove service">×</button>`;
   div.querySelector("button").onclick = () => div.remove();
@@ -169,17 +321,18 @@ function showProfile(p) {
   $("make").value = p.make || ""; $("model").value = p.model || ""; $("year").value = p.year || ""; $("miles").value = p.mileage ?? "";
   $("svcs").innerHTML = ""; (p.services || []).forEach(svcRow);
   $("example").hidden = !p.is_example;
+  drawVehicle(); loadModels();
 }
 $("addsvc").onclick = () => svcRow();
 $("carform").onsubmit = async (e) => {
   e.preventDefault();
   const services = [...$("svcs").children].map(r => { const [s, m, d] = r.querySelectorAll("select,input"); return { service: s.value, mileage: m.value, date: d.value }; }).filter(x => x.mileage && x.date);
   const d = await api("/api/profile", { profile: { make: $("make").value, model: $("model").value, year: $("year").value, mileage: $("miles").value, services } });
-  $("carmsg").textContent = d.ok ? "Saved. The agents will use this car." : (d.error || "Couldn't save.");
+  $("carmsg").textContent = d.ok ? "Saved. Answers will use this car." : (d.error || "Couldn't save the car. Check the year and mileage.");
   if (d.ok) showProfile(d.profile);
 };
 
-// ---------- chat rendering
+// ---------- conversation
 function md(text) {
   const out = []; let list = null;
   const fmt = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/^#+\s*/, "");
@@ -196,79 +349,84 @@ function addMsg(cls, html) {
   const div = document.createElement("div"); div.className = "msg " + cls; div.innerHTML = html;
   $("log").append(div); div.scrollIntoView({ block: "end", behavior: "smooth" }); return div;
 }
-function stepsHtml(r) {
-  const steps = (r.steps || []).map(s => {
-    let h = `<div class="step"><h4>${esc(s.agent)} · step ${s.iteration} <span class="sub">(${esc(s.model)})</span></h4>`;
-    s.reasoning.forEach(t => h += `<div class="k">Reasoning</div><div>${md(t)}</div>`);
-    s.tool_calls.forEach(c => {
-      h += `<div class="k">Tool call</div><span class="tool">${esc(c.name)}</span>
-        <pre>${esc(JSON.stringify(c.arguments, null, 2))}</pre>
-        <div class="k">Observation</div><pre>${esc(JSON.stringify(c.observation, null, 2))}</pre>`;
-    });
-    if (!s.tool_calls.length) h += `<div class="k">No tool calls</div><div class="sub">Wrote its draft answer.</div>`;
-    return h + "</div>";
-  }).join("");
+function callHtml(c) {
+  const ok = c.observation && c.observation.ok !== false;
+  return `<details class="call"><summary><span>${esc(c.name)}</span><span class="st ${ok ? "okc" : "fail"}">${ok ? "returned data" : "failed"}</span></summary>
+    <pre>${esc(JSON.stringify(c.arguments, null, 2))}</pre><pre>${esc(JSON.stringify(c.observation, null, 2))}</pre></details>`;
+}
+function workHtml(r) {
+  const steps = [`<li><h5>Router</h5><div class="note">Sent to the ${esc(r.agent)}: ${esc(r.route_reason)}.</div></li>`];
+  (r.steps || []).forEach(s => {
+    const what = s.tool_calls.length ? `${s.tool_calls.length} tool call${s.tool_calls.length > 1 ? "s" : ""}` : "wrote the draft answer";
+    steps.push(`<li><h5>${esc(s.agent)} <small>${esc(what)} · ${esc(s.model)}</small></h5>
+      ${s.reasoning.map(t => `<div class="note">${md(t)}</div>`).join("")}${s.tool_calls.map(callHtml).join("")}</li>`);
+  });
   const c = r.critic || {};
-  const critic = `<div class="step"><h4>Critic agent <span class="sub">(${esc(c.model || "checks only")})</span></h4>
-    <div>${c.approved ? "Approved the draft." : "Rejected the draft" + (c.revised ? "; the specialist rewrote it once." : ".")}</div>
-    ${(c.issues || []).length ? `<div class="k">Issues found</div><ul>${c.issues.map(i => `<li>${esc(i)}</li>`).join("")}</ul>` : ""}
-    ${(c.remaining_issues || []).length ? `<div class="k">Still flagged after rewrite</div><ul>${c.remaining_issues.map(i => `<li>${esc(i)}</li>`).join("")}</ul>` : ""}</div>`;
-  return `<details class="work"><summary>How it got this answer: router → ${esc(r.agent)} → Critic · ${r.tool_calls_used || 0} tool call(s)</summary>
-    <div class="step"><h4>Router</h4><div>Sent to <b>${esc(r.agent)}</b> because: ${esc(r.route_reason)}</div></div>${steps}${critic}</details>`;
+  const verdict = c.approved ? "Approved the draft against the tool results." : c.revised ? "Found problems, so the specialist rewrote the answer once." : "Flagged problems with the draft.";
+  const issues = [...(c.issues || []), ...(c.remaining_issues || []).map(i => "Still flagged: " + i)];
+  steps.push(`<li><h5>Critic <small>${esc(c.model || "automatic checks")}</small></h5><div class="note">${verdict}</div>
+    ${issues.length ? `<ul class="note">${issues.map(i => `<li>${esc(i)}</li>`).join("")}</ul>` : ""}</li>`);
+  return `<details class="work"><summary>Show how this answer was made</summary><ol class="steps">${steps.join("")}</ol></details>`;
 }
 function gateHtml(p) {
   const rows = Object.entries(p.arguments).map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join("");
-  return `<div class="gate" id="gate-${esc(p.id)}"><h3>Approval needed: change your saved car record</h3>
-    <div>The agent wants to call <span class="tool">${esc(p.tool)}</span> with exactly these arguments. Nothing is saved unless you approve.</div>
+  return `<div class="gate" id="gate-${esc(p.id)}"><h4>Save this to your service log?</h4>
+    <p>The agent wants to run <b>${esc(p.tool)}</b> with exactly these values. Nothing is saved unless you approve.</p>
     <table>${rows}</table>
-    <div class="row"><button type="button" class="primary" data-id="${esc(p.id)}" data-d="approve">Approve and save</button>
-    <button type="button" data-id="${esc(p.id)}" data-d="reject">Reject</button></div></div>`;
+    <div class="row"><button type="button" class="btn primary" data-id="${esc(p.id)}" data-d="approve">Approve and save</button>
+    <button type="button" class="btn" data-id="${esc(p.id)}" data-d="reject">Don't save</button></div></div>`;
 }
 $("log").addEventListener("click", async (e) => {
   const b = e.target.closest("button[data-d]"); if (!b) return;
   const card = $("gate-" + b.dataset.id); card.querySelectorAll("button").forEach(x => x.disabled = true);
   const d = await api("/api/approve", { id: b.dataset.id, decision: b.dataset.d });
-  const msg = d.ok ? (d.approved ? "Approved. Saved to your car record." : "Rejected. Nothing was saved.") : (d.error || "Couldn't record your decision.");
+  const msg = d.ok ? (d.approved ? "Saved to your service log." : "Not saved.") : (d.error || "Couldn't record your choice. Try again.");
   card.querySelector(".row").outerHTML = `<div class="done">${esc(msg)}</div>`;
-  if (d.ok) showProfile(d.profile);
+  if (d.ok) card.insertAdjacentHTML("beforeend", d.approved ? `<span class="stamp">Logged</span>` : `<span class="stamp no">Skipped</span>`);
+  if (d.ok) { showProfile(d.profile); if (d.approved && $("svcs").lastElementChild) { $("svcs").lastElementChild.classList.add("fresh"); } }
 });
 function botReply(r) {
   const c = r.critic || {};
-  const badge = c.approved ? `<span class="pill ok">Critic approved</span>` : c.revised ? `<span class="pill warn">Critic: revised</span>` : `<span class="pill warn">Critic flagged</span>`;
-  const stop = r.status === "max_steps" ? `<span class="pill bad">Stopped at step limit</span>` : "";
-  addMsg("bot", `<div class="meta"><span class="pill agent">${esc(r.agent)}</span>${badge}${stop}</div>
-    <div class="bubble">${md(r.reply)}</div>${(r.pending || []).map(gateHtml).join("")}${stepsHtml(r)}`);
+  const badge = c.approved ? `<span class="badge ok">${ICON_OK}Checked by Critic</span>`
+    : c.revised ? `<span class="badge warn">${ICON_WARN}Revised after Critic review</span>` : `<span class="badge warn">${ICON_WARN}Critic flagged issues</span>`;
+  const stop = r.status === "max_steps" ? `<span class="badge bad">${ICON_WARN}Stopped at step limit</span>` : "";
+  const cls = agentClass(r.agent_key);
+  addMsg("bot " + cls, `<div class="who">${avatar(cls)}<span class="name">${esc(r.agent)}</span>${badge}${stop}</div>
+    <div class="answer">${md(r.reply)}</div>${(r.pending || []).map(gateHtml).join("")}${workHtml(r)}`);
 }
-function setLimits(n) { if (n != null) $("limits").textContent = `${n} messages left in this chat`; }
+function setLimits(n) { if (n != null) $("limits").textContent = `${n} messages left`; }
 
 async function send(text) {
   text = text.trim(); if (!text || busy) return;
   busy = true; $("send").disabled = true; $("msg").value = "";
   addMsg("user", esc(text));
-  const wait = addMsg("bot", `<div class="bubble thinking">Routing to the right agent, calling tools, then the Critic checks the answer… (usually 15–60 seconds)</div>`);
+  const wait = addMsg("bot", `<div class="thinking"><div class="road" aria-hidden="true">${CAR_SVG}</div><span>On it. An agent is checking your car's data, then the Critic reviews the answer. Usually 15 to 60 seconds.</span></div>`);
   try {
     const r = await api("/api/chat", { message: text });
     wait.remove();
-    if (r.ok) botReply(r); else addMsg("bot", `<div class="err">${esc(r.error || "Something went wrong.")}</div>`);
+    if (r.ok) botReply(r); else addMsg("bot", `<div class="err">${esc(r.error || "Something went wrong. Try again.")}</div>`);
     if (r.profile) showProfile(r.profile);
     setLimits(r.turns_left);
-  } catch {
-    wait.remove(); addMsg("bot", `<div class="err">Can't reach the server. Refresh the page and try again.</div>`);
   } finally { busy = false; $("send").disabled = false; $("msg").focus(); }
 }
 $("composer").onsubmit = (e) => { e.preventDefault(); send($("msg").value); };
 $("msg").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send($("msg").value); } });
-$("chips").addEventListener("click", (e) => { if (e.target.tagName === "BUTTON") send(e.target.textContent); });
+$("chips").innerHTML = CHIPS.map(([q, c]) => `<button type="button" data-q="${esc(q)}" style="--agent: var(--a-${c === "home" ? "maint" : c})">${AGENT_ICONS[c]}<span>${esc(q)}</span></button>`).join("");
+$("chips").addEventListener("click", (e) => { const b = e.target.closest("button[data-q]"); if (b) send(b.dataset.q); });
 $("newchat").onclick = async () => { const d = await api("/api/reset", {}); $("log").innerHTML = ""; welcome(); setLimits(d.turns_left); };
 
 function welcome() {
-  addMsg("bot", `<div class="meta"><span class="pill agent">Car Care Agent</span></div><div class="bubble"><p>Hi! I can tell you what maintenance is due, figure out what a noise or warning light might mean, check NHTSA recalls, and get your car ready for a trip.</p><p>An example car is loaded on the left. Edit it, or just try a question below. If I ever want to change your saved car record, I'll ask you first.</p></div>`);
+  addMsg("bot home", `<div class="hello"><div class="hello-art" aria-hidden="true">${CAR_SVG}</div><div>
+    <h2>What's your car up to?</h2>
+    <p>Ask what's due for service, what that noise or warning light means, whether there's an open recall, or if it's ready for a road trip.</p>
+    <p class="sub">An example car is loaded in the car panel. Edit it to match yours. I'll always ask before changing your service log.</p></div></div>`);
 }
 (async () => {
   welcome();
-  try { const d = await api("/api/session?sid=" + encodeURIComponent(SID)); if (d.session) { SID = d.session; store("carcare_sid", SID); }
-    showProfile(d.profile); setLimits(d.turns_left); (d.pending || []).forEach(p => addMsg("bot", gateHtml(p))); }
-  catch { addMsg("bot", `<div class="err">Can't reach the server. If it's on Render's free plan it may be waking up; wait a minute and refresh.</div>`); }
+  const d = await api("/api/session?sid=" + encodeURIComponent(SID));
+  if (!d.profile) { addMsg("bot", `<div class="err">Can't reach the server. If it was asleep, wait a minute and refresh.</div>`); return; }
+  if (d.session) { SID = d.session; store("carcare_sid", SID); }
+  showProfile(d.profile); setLimits(d.turns_left); (d.pending || []).forEach(p => addMsg("bot", gateHtml(p)));
 })();
 </script>
 </body>
